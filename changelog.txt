@@ -1,0 +1,2 @@
+[B]Newznab 0.2.5[/B]
+- Re-write by popeye

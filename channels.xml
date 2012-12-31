@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<tv>
+    <channel name="ABC">
+        <show name="101 Ways to Leave a Game Show US" thumb="http://thetvdb.com/banners/posters/249736-1.jpg" rageid="27939" fanart="">
+        </show>
+    </channel>
+    <channel name="LaLaLa">
+        <show name="101 Ways to Leave a Game Show US" thumb="http://thetvdb.com/banners/posters/249736-1.jpg" rageid="27939" fanart="">
+        </show>
+    </channel>
+</tv>
