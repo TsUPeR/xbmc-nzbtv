@@ -31,58 +31,44 @@ import xbmcplugin
 import os
 from xml.dom.minidom import parseString
 
+import tv
+
 __settings__ = xbmcaddon.Addon(id='plugin.video.nzbtv')
 __language__ = __settings__.getLocalizedString
 
 USERDATA_PATH = xbmc.translatePath(__settings__.getAddonInfo("profile"))
-ADDON_PATH = xbmc.translatePath(__settings__.getAddonInfo("path"))
-NEWZNAB_SITE = __settings__.getSetting("newznab_site")
+REMOTE = __settings__.getSetting("remote_channels")
+if (__settings__.getSetting("enable_local_channels").lower() == "true"):
+    LOCAL = unicode(__settings__.getSetting("local_channels"), 'utf-8')
+else:
+    LOCAL = ""
+CACHE_TIME = int(__settings__.getSetting("cache_time"))*3600
 
+TV = tv.Tv(USERDATA_PATH, REMOTE, LOCAL, CACHE_TIME)
+
+NEWZNAB_SITE = __settings__.getSetting("newznab_site")
 NEWZNAB = "plugin://plugin.video.newznab"
 NEWZNAB_SEARCH_RAGEID = "%s?mode=newznab&newznab=search_rageid&index=%s" % (NEWZNAB, NEWZNAB_SITE)
-
 
 MODE_CHANNEL = "channel"
 MODE_SHOW = "show"
 
 def list_channels():
     #Build channel list
-    for channel_name in channel_name_list():
-        add_posts({'title' : '%s' % channel_name,}, mode=MODE_CHANNEL, \
-                  url='&nzbtv_channel_name=%s' % quote_plus(channel_name))
+    for name, rageids in TV.channel.items():
+        add_posts({'title' : '%s' % name,}, mode=MODE_CHANNEL, \
+                  url="&nzbtv_rageids=%s" % quote_plus(','.join(rageids)))
     xbmcplugin.setContent(int(sys.argv[1]), 'movies')
-    xbmcplugin.endOfDirectory(int(sys.argv[1]), succeeded=True, cacheToDisc=True)
-    
-def channel_name_list():
-    doc = parseString(read_xml())
-    channels = []
-    for channel in doc.getElementsByTagName("channel"):
-        channels.append(channel.getAttribute("name"))
-    return channels
-
-def list_shows(channel_name):
-    print channel_name
-    doc = parseString(read_xml())
-    for channel in doc.getElementsByTagName("channel"):
-        print channel.getAttribute("name")
-        if channel.getAttribute("name") == channel_name:
-            for show in channel.getElementsByTagName("show"):
-                show_name = show.getAttribute("name")
-                rageid = show.getAttribute("rageid")
-                thumb = show.getAttribute("thumb")
-                fanart = show.getAttribute("fanart")
-                url = "%s&rageid=%s" % (NEWZNAB_SEARCH_RAGEID, rageid) 
-                add_posts({'title' : '%s' % show_name,}, mode=MODE_SHOW, url=url, thumb=thumb, fanart=fanart)
-    xbmcplugin.setContent(int(sys.argv[1]), 'movies')
+    xbmcplugin.addSortMethod(int(sys.argv[1]), xbmcplugin.SORT_METHOD_TITLE)
     xbmcplugin.endOfDirectory(int(sys.argv[1]), succeeded=True, cacheToDisc=True)
 
-def read_xml():
-    #TODO
-    #add setting and option to store other xml files
-    #from online sources etc
-    with open(os.path.join(ADDON_PATH, "channels.xml"), "rb") as out:
-        xml = out.read()
-    return xml
+def list_shows(rageids):
+    for rageid in rageids.split(','):
+        url = "%s&rageid=%s" % (NEWZNAB_SEARCH_RAGEID, rageid) 
+        add_posts({'title' : '%s' % TV.show[rageid],}, mode=MODE_SHOW, url=url, thumb=TV.thumb[rageid], fanart=TV.fanart[rageid])
+    xbmcplugin.setContent(int(sys.argv[1]), 'movies')
+    xbmcplugin.addSortMethod(int(sys.argv[1]), xbmcplugin.SORT_METHOD_TITLE)
+    xbmcplugin.endOfDirectory(int(sys.argv[1]), succeeded=True, cacheToDisc=True)
 
 def add_posts(info_labels, **kwargs):
     url = kwargs.get('url', '')
@@ -131,4 +117,4 @@ if (__name__ == "__main__" ):
         params = get_parameters(sys.argv[2])
         get = params.get
         if get("mode")== MODE_CHANNEL:
-            list_shows(get('nzbtv_channel_name'))
+            list_shows(unquote_plus(get('nzbtv_rageids')))

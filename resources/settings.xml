@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <settings>
-  <category label="30001">
+  <category>
     <setting id="newznab_site" type="number" label="30010" default="1" />
-    <setting id="newznab_hide" type="text" label="30011" default=""/>
+    <setting id="remote_channels" type="text" label="30011" enable="eq(1,false)" default="https://github.com/ckergald/Releases/raw/master/channels.xml"/>
+    <setting id="enable_local_channels" type="bool" label="30012" default="false"/>
+    <setting id="local_channels" type="file" label="30013" enable="eq(-1,true)" source="files" mask=".xml" default=""/>
+    <setting id="cache_time" type="labelenum" label="30014" values="0|1|12|24|48|72" default="24"/>
   </category>
 </settings>
