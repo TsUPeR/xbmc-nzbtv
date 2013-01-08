@@ -75,12 +75,12 @@ class Tv:
                 self.show.clear()
                 self.thumb.clear()
                 self.fanart.clear()
-                for chan in channel_xml.getElementsByTagName("Channel"):
+                for chan in channel_xml.getElementsByTagName("channel"):
                     rageid_list = []
-                    for show in chan.getElementsByTagName("Show"):
-                        rageid = self._get_node_value(show, 'RageID')
+                    for show in chan.getElementsByTagName("show"):
+                        rageid = self._get_node_value(show, 'rageid')
                         rageid_list.append(rageid)
-                        self.show[rageid] = self._get_node_value(show, 'Title')
+                        self.show[rageid] = self._get_node_value(show, 'title')
                         self.thumb[rageid] = self._get_node_value(show, 'thumb')
                         self.fanart[rageid] = self._get_node_value(show, 'fanart')
                     self.channel[self._get_node_value(chan, 'name')] = rageid_list
