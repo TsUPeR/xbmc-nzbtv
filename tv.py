@@ -70,6 +70,11 @@ class Tv:
             else:
                 channel_xml, error = self._load_xml(url)
             if error is None:
+                # clear dicts
+                self.channel.clear()
+                self.show.clear()
+                self.thumb.clear()
+                self.fanart.clear()
                 for chan in channel_xml.getElementsByTagName("Channel"):
                     rageid_list = []
                     for show in chan.getElementsByTagName("Show"):
