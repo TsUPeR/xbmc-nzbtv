@@ -24,6 +24,7 @@
 """
 
 import urllib
+import xbmc
 import xbmcaddon
 import xbmcgui
 import xbmcplugin
@@ -45,30 +46,64 @@ else:
 CACHE_TIME = int(__settings__.getSetting("cache_time"))*3600
 
 TV = tv.Tv(USERDATA_PATH, REMOTE, LOCAL, CACHE_TIME)
+FAV = tv.Favorite(USERDATA_PATH)
 
 NEWZNAB_SITE = __settings__.getSetting("newznab_site")
 NEWZNAB = "plugin://plugin.video.newznab"
 NEWZNAB_SEARCH_RAGEID = "%s?mode=newznab&newznab=search_rageid&index=%s" % (NEWZNAB, NEWZNAB_SITE)
 
 MODE_CHANNEL = "channel"
+MODE_CHANNEL_FAV = "channel_fav"
+MODE_CHANNEL_FAV_LIST = "channel_fav_list"
+MODE_CHANNEL_FAV_ADD = "channel_fav_add"
+MODE_CHANNEL_FAV_DEL = "channel_fav_del"
 MODE_SHOW = "show"
+MODE_SHOW_FAV = "show_fav"
+MODE_SHOW_FAV_LIST = "show_fav_list"
+MODE_SHOW_FAV_ADD = "show_fav_add"
+MODE_SHOW_FAV_DEL = "show_fav_del"
 
-def list_channels():
+def list_channels(channels, mode=MODE_CHANNEL):
     #Build channel list
-    for name, rageids in TV.channel.items():
-        add_posts({'title' : '%s' % name,}, mode=MODE_CHANNEL, \
+    for name, rageids in channels:
+        add_posts({'title' : '%s' % name,}, mode=mode, \
                   url="&nzbtv_rageids=%s" % quote_plus(','.join(rageids)))
+    the_end()
+
+def list_shows(rageids, mode=MODE_SHOW):
+    for rageid in rageids.split(','):
+        if rageid != '':
+            url = "%s&rageid=%s" % (NEWZNAB_SEARCH_RAGEID, rageid) 
+            add_posts({'title' : '%s' % TV.show[rageid],}, mode=mode, url=url, \
+                      thumb=TV.thumb[rageid], fanart=TV.fanart[rageid], rageid=rageid)
+    the_end()
+
+def the_end():
     xbmcplugin.setContent(int(sys.argv[1]), 'movies')
     xbmcplugin.addSortMethod(int(sys.argv[1]), xbmcplugin.SORT_METHOD_TITLE)
     xbmcplugin.endOfDirectory(int(sys.argv[1]), succeeded=True, cacheToDisc=True)
 
-def list_shows(rageids):
-    for rageid in rageids.split(','):
-        url = "%s&rageid=%s" % (NEWZNAB_SEARCH_RAGEID, rageid) 
-        add_posts({'title' : '%s' % TV.show[rageid],}, mode=MODE_SHOW, url=url, thumb=TV.thumb[rageid], fanart=TV.fanart[rageid])
-    xbmcplugin.setContent(int(sys.argv[1]), 'movies')
-    xbmcplugin.addSortMethod(int(sys.argv[1]), xbmcplugin.SORT_METHOD_TITLE)
-    xbmcplugin.endOfDirectory(int(sys.argv[1]), succeeded=True, cacheToDisc=True)
+def list_show_fav():
+    rageids = []
+    for rageid, nothing in FAV.show.items():
+        rageids.append(rageid)
+    list_shows(','.join(rageids), mode=MODE_SHOW_FAV)
+
+def show_fav_add(rageid):
+    FAV.show_cache.set_value(rageid, '')
+
+def show_fav_del(rageid):
+    FAV.show_cache.del_key(rageid)
+    xbmc.executebuiltin("Container.Refresh")
+
+def channel_fav_add(channel_name, rageids):
+    FAV.channel_cache.set_value(channel_name, [x for x in rageids.split(',')])
+    if len(FAV.channel.items()) == 0:
+        xbmc.executebuiltin("Container.Refresh")
+
+def channel_fav_del(channel_name):
+    FAV.channel_cache.del_key(channel_name)
+    xbmc.executebuiltin("Container.Refresh")
 
 def add_posts(info_labels, **kwargs):
     url = kwargs.get('url', '')
@@ -76,15 +111,42 @@ def add_posts(info_labels, **kwargs):
     thumb = kwargs.get('thumb', '')
     fanart = kwargs.get('fanart', '')
     isFolder = (kwargs.get('isFolder', 'true') == "true")
-    listitem=xbmcgui.ListItem(info_labels['title'], iconImage="DefaultVideo.png", thumbnailImage=thumb)   
+    listitem=xbmcgui.ListItem(info_labels['title'], thumbnailImage=thumb)   
     listitem.setProperty("Fanart_Image", fanart)
     xurl = ''
+    if mode == MODE_CHANNEL:
+        cmurl = "&nzbtv_channel=%s%s" % (quote_plus(info_labels['title']), url)
+        cm = []
+        cm.append(cm_build("Add to favorite channels", MODE_CHANNEL_FAV_ADD, cmurl))
+        listitem.addContextMenuItems(cm, replaceItems=True)
+    if mode == MODE_CHANNEL_FAV:
+        mode = MODE_CHANNEL
+        cmurl = "&nzbtv_channel=%s%s" % (quote_plus(info_labels['title']), url)
+        cm = []
+        cm.append(cm_build("Remove favorite", MODE_CHANNEL_FAV_DEL, cmurl))
+        listitem.addContextMenuItems(cm, replaceItems=True)
+    if mode == MODE_SHOW:
+        cmurl = "&rageid=%s" % kwargs.get('rageid', '')
+        cm = []
+        cm.append(cm_build("Add to favorite shows", MODE_SHOW_FAV_ADD, cmurl))
+        listitem.addContextMenuItems(cm, replaceItems=True)
+    if mode == MODE_SHOW_FAV:
+        mode = MODE_SHOW
+        cmurl = "&rageid=%s" % kwargs.get('rageid', '')
+        cm = []
+        cm.append(cm_build("Remove favorite", MODE_SHOW_FAV_DEL, cmurl))
+        listitem.addContextMenuItems(cm, replaceItems=True)
     if mode != MODE_SHOW:
         xurl = "%s?mode=%s" % (sys.argv[0], mode)
     xurl = "%s%s" % (xurl, url)
     listitem.setInfo(type="Video", infoLabels=info_labels)
     listitem.setPath(xurl)
     return xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]), url=xurl, listitem=listitem, isFolder=isFolder)
+
+def cm_build(label, mode, url):
+    command = "XBMC.RunPlugin(%s?mode=%s%s)" % (sys.argv[0], mode, url)
+    out = (label, command)
+    return out
 
 # FROM plugin.video.youtube.beta  -- converts the request url passed on by xbmc to our plugin into a dict  
 def get_parameters(parameterString):
@@ -112,9 +174,25 @@ def unquote_plus(name):
 
 if (__name__ == "__main__" ):
     if (not sys.argv[2]):
-        list_channels()
+        if len(FAV.channel.items()) > 0:
+            add_posts({'title' : '- Favorite channels',}, mode=MODE_CHANNEL_FAV_LIST, url="")
+        if len(FAV.show.items()) > 0:
+            add_posts({'title' : '- Favorite shows',}, mode=MODE_SHOW_FAV_LIST, url="")
+        list_channels(TV.channel.items())
     else:
         params = get_parameters(sys.argv[2])
         get = params.get
         if get("mode")== MODE_CHANNEL:
             list_shows(unquote_plus(get('nzbtv_rageids')))
+        if get("mode")== MODE_CHANNEL_FAV_LIST:
+            list_channels(FAV.channel.items(), mode=MODE_CHANNEL_FAV)
+        if get("mode")== MODE_CHANNEL_FAV_ADD:
+            channel_fav_add(unquote_plus(get('nzbtv_channel')), unquote_plus(get('nzbtv_rageids')))
+        if get("mode")== MODE_CHANNEL_FAV_DEL:
+            channel_fav_del(unquote_plus(get('nzbtv_channel')))
+        if get("mode")== MODE_SHOW_FAV_LIST:
+            list_show_fav()
+        if get("mode")== MODE_SHOW_FAV_ADD:
+            show_fav_add(unquote_plus(get('rageid')))
+        if get("mode")== MODE_SHOW_FAV_DEL:
+            show_fav_del(unquote_plus(get('rageid')))

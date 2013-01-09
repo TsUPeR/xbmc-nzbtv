@@ -119,6 +119,15 @@ class Tv:
         else:
             return None, error
 
+class Favorite:
+    def __init__(self, path):
+        self.path = path
+        self.channel_cache = DictCache(self.path, 'channel_fav')
+        self.show_cache = DictCache(self.path, 'show_fav')
+        # Load cache
+        self.channel = self.channel_cache.get_dict()
+        self.show = self.show_cache.get_dict()
+
 class DictCache:
     def __init__(self, path, name):
         self.cache_path = os.path.join(path, name)
@@ -141,4 +150,9 @@ class DictCache:
     def set_value(self, key, value):
         cache_dict = self.get_dict()
         cache_dict[key] = value
+        pickle.dump( cache_dict, open( self.cache_path, "wb" ) )
+
+    def del_key(self, key):
+        cache_dict = self.get_dict()
+        del cache_dict[key]
         pickle.dump( cache_dict, open( self.cache_path, "wb" ) )
