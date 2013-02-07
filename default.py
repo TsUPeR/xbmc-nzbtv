@@ -35,6 +35,8 @@ from xml.dom.minidom import parseString
 import tv
 
 __settings__ = xbmcaddon.Addon(id='plugin.video.nzbtv')
+if not (__settings__.getSetting("firstrun")):
+    __settings__.setSetting("firstrun", "1")
 __language__ = __settings__.getLocalizedString
 
 USERDATA_PATH = xbmc.translatePath(__settings__.getAddonInfo("profile"))
